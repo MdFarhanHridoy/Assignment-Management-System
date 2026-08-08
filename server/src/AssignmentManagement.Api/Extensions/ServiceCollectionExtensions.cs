@@ -25,6 +25,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ITeacherAssignmentService, TeacherAssignmentService>();
         services.AddScoped<IEnrollmentService, EnrollmentService>();
         services.AddScoped<IAdminReadService, AdminReadService>();
+        services.AddScoped<IAssignmentService, AssignmentService>();
+        services.AddScoped<ISubmissionService, SubmissionService>();
         services.AddScoped<LoginRequestValidator>();
         services.AddValidatorsFromAssemblyContaining<LoginRequestValidator>();
 
