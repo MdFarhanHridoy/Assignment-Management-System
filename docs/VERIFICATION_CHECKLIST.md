@@ -319,37 +319,125 @@ try {
 
 ---
 
-### PHASE 3 — TODO
+### PHASE 3 — COMPLETED
 
 - **Phase goal:** Admin API — users CRUD, classes/courses CRUD, subjects CRUD, teacher-assignments, enrollments, and read-only visibility of all assignments/submissions.
 - **Depends on:** Phase 2 (auth + role authorization enforced).
 
 #### Verification checkboxes
-- [ ] Code builds
-- [ ] Migrations applied (only if schema changed)
-- [ ] Tests pass
-- [ ] Manual smoke (admin endpoints return 2xx for Admin; 403 for Teacher/Student)
-- [ ] Docs updated if changed
+- [x] Code builds — `dotnet build` 0 errors / 0 warnings across 5 projects
+- [x] Migrations applied — no schema changes in Phase 3 (code-only)
+- [x] Tests pass — `dotnet test` green (SanityTests 1/1)
+- [x] Manual smoke — all 14 admin endpoint tests pass (CRUD + read-all + 403/401/404/409 enforcement)
+- [x] Docs updated if changed — no spec contract changed
 
 #### Verification record
 | Field | Value |
 |---|---|
-| Commands run | |
-| Expected | |
-| Actual | |
-| Result | |
+| Commands run | `dotnet build AssignmentManagement.sln`; `dotnet test`; smoke test via `Invoke-RestMethod` (14 admin endpoint checks) |
+| Expected | Build: 0/0; Tests: 1 pass; Admin CRUD (users create/list/get/delete) + read-all (classes, subjects, teacher-assignments, enrollments, assignments, submissions) → 200/201/204; duplicate email → 409; wrong role → 403; no token → 401; bad id → 404 |
+| Actual | Build: 0 Warning(s), 0 Error(s); Tests: Passed 1/1; users=4, classes=2, subjects=3, teacher-assignments=4, enrollments=1, assignments=2, submissions=1; create user → 201 (Student role confirmed); duplicate email → 409; delete → 204; teacher hitting /admin → 403; no token → 401; bad user id → 404; get-by-id → 200 (Admin User/Admin) |
+| Result | **PASS** |
 | Commit message | `feat(admin): user, class, subject, teacher-assignment and enrollment APIs` |
 | Commit command | `git add -A && git commit -m "feat(admin): user, class, subject, teacher-assignment and enrollment APIs"` |
 
-#### Canonical verify commands (backend)
-```bash
-dotnet build server/<Solution>.sln
-dotnet test server/<Tests>
-# manual: hit /api/admin/* with admin token (2xx); with teacher/student token (403)
+#### Canonical verify commands (run from `server\`)
+```powershell
+# build + unit tests
+dotnet restore AssignmentManagement.sln
+dotnet build AssignmentManagement.sln
+dotnet test AssignmentManagement.sln --no-build
+
+# start the API in Development (auto-migrates + seeds on first run)
+$env:ASPNETCORE_ENVIRONMENT = "Development"
+dotnet run --project src/AssignmentManagement.Api --no-build
+# Swagger UI: http://localhost:5000/swagger
 ```
 
+Quick sanity check (in a second terminal, admin login + list users):
+```powershell
+$aBody = @{ email = "admin@example.com"; password = "admin@123" } | ConvertTo-Json
+$a = Invoke-RestMethod -Uri "http://localhost:5000/api/auth/login" -Method Post -Body $aBody -ContentType "application/json"
+$H = @{ Authorization = "Bearer $($a.token)" }
+Invoke-RestMethod -Uri "http://localhost:5000/api/admin/users" -Headers $H | ConvertTo-Json
+# expect: 4 users (admin, teacher, teacher2, student), no passwordHash field
+```
+
+#### Manual smoke test — step-by-step (PowerShell)
+
+**Step 1 — Start the API (Development env):**
+```powershell
+cd C:\Projects\Assessment\OnnoRokom_Projukti_Limited\Assignment-Management-System\server
+$env:ASPNETCORE_ENVIRONMENT = "Development"
+dotnet run --project src/AssignmentManagement.Api --no-build
+```
+
+**Step 2 — In a second terminal, login as admin then test endpoints:**
+```powershell
+# --- Login as admin ---
+$aBody = @{ email = "admin@example.com"; password = "admin@123" } | ConvertTo-Json
+$a = Invoke-RestMethod -Uri "http://localhost:5000/api/auth/login" -Method Post -Body $aBody -ContentType "application/json"
+$H = @{ Authorization = "Bearer $($a.token)" }
+
+# --- List all users (expect 4+) ---
+Invoke-RestMethod -Uri "http://localhost:5000/api/admin/users" -Headers $H | ConvertTo-Json
+
+# --- Create a user (expect 201) ---
+$nBody = @{ name="New Student"; email="new@e.com"; password="pass@123"; role="Student" } | ConvertTo-Json
+$nu = Invoke-RestMethod -Uri "http://localhost:5000/api/admin/users" -Method Post -Headers $H -Body $nBody -ContentType "application/json"
+
+# --- Duplicate email (expect 409) ---
+try { Invoke-RestMethod -Uri "http://localhost:5000/api/admin/users" -Method Post -Headers $H -Body $nBody -ContentType "application/json" } catch { Write-Output "Status: $([int]$_.Exception.Response.StatusCode)" }
+
+# --- Delete the user (expect 204) ---
+Invoke-RestMethod -Uri "http://localhost:5000/api/admin/users/$($nu.id)" -Method Delete -Headers $H
+
+# --- Get user by id (expect 200) ---
+Invoke-RestMethod -Uri "http://localhost:5000/api/admin/users/aaaaaaaa-0000-0000-0000-000000000001" -Headers $H
+
+# --- Non-existent id (expect 404) ---
+try { Invoke-RestMethod -Uri "http://localhost:5000/api/admin/users/00000000-0000-0000-0000-000000000099" -Headers $H } catch { Write-Output "Status: $([int]$_.Exception.Response.StatusCode)" }
+
+# --- Read-all endpoints (all expect 200) ---
+Invoke-RestMethod -Uri "http://localhost:5000/api/admin/classes" -Headers $H           # 2 classes
+Invoke-RestMethod -Uri "http://localhost:5000/api/admin/subjects" -Headers $H           # 3 subjects
+Invoke-RestMethod -Uri "http://localhost:5000/api/admin/teacher-assignments" -Headers $H # 4 TAs
+Invoke-RestMethod -Uri "http://localhost:5000/api/admin/enrollments" -Headers $H        # 1 enrollment
+Invoke-RestMethod -Uri "http://localhost:5000/api/admin/assignments" -Headers $H        # 2 assignments
+Invoke-RestMethod -Uri "http://localhost:5000/api/admin/submissions" -Headers $H        # 1 submission
+
+# --- Teacher hitting admin endpoint (expect 403) ---
+$tBody = @{ email = "teacher@example.com"; password = "teacher@123" } | ConvertTo-Json
+$t = Invoke-RestMethod -Uri "http://localhost:5000/api/auth/login" -Method Post -Body $tBody -ContentType "application/json"
+$tH = @{ Authorization = "Bearer $($t.token)" }
+try { Invoke-RestMethod -Uri "http://localhost:5000/api/admin/users" -Headers $tH } catch { Write-Output "Status: $([int]$_.Exception.Response.StatusCode)" }
+
+# --- No token (expect 401) ---
+try { Invoke-RestMethod -Uri "http://localhost:5000/api/admin/users" } catch { Write-Output "Status: $([int]$_.Exception.Response.StatusCode)" }
+```
+
+**Expected results summary:**
+
+| Test | Expected Status | Notes |
+|---|---|---|
+| `GET /admin/users` | 200 | Array of UserDto (4 seeded) |
+| `POST /admin/users` | 201 | New UserDto, no `passwordHash` |
+| `POST /admin/users` (dup email) | 409 | Conflict |
+| `DELETE /admin/users/{id}` | 204 | No content |
+| `GET /admin/users/{id}` | 200 | UserDto |
+| `GET /admin/users/{bad-id}` | 404 | Not found |
+| `GET /admin/classes` | 200 | 2 classes |
+| `GET /admin/subjects` | 200 | 3 subjects |
+| `GET /admin/teacher-assignments` | 200 | 4 assignments |
+| `GET /admin/enrollments` | 200 | 1 enrollment |
+| `GET /admin/assignments` | 200 | 2 assignments |
+| `GET /admin/submissions` | 200 | 1 submission |
+| Teacher → `/admin/*` | 403 | Forbidden |
+| No token → `/admin/*` | 401 | Unauthorized |
+
 #### Notes / deviations
-_(none yet)_
+- **Auth fix — `MapInboundClaims = false`:** the `JwtSecurityTokenHandler` default inbound claim type map converts the JWT `"role"` claim to `ClaimTypes.Role` (long URI), which caused `[Authorize(Roles="Admin")]` to fail with 403 even for admin users. Fixed by setting `options.MapInboundClaims = false` in the JwtBearer configuration so original JWT claim names (`"role"`, `"sub"`) are preserved and match `RoleClaimType = "role"`.
+- **Application-layer file creation:** Wave 1 sub-agents reported success but file writes did not persist; all 40 Application-layer files (DTOs, mappings, validators, service interfaces + implementations) were created directly by the orchestrator.
 
 ---
 

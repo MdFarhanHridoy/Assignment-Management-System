@@ -19,6 +19,12 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddApplication(this IServiceCollection services)
     {
         services.AddScoped<IAuthService, AuthService>();
+        services.AddScoped<IUserService, UserService>();
+        services.AddScoped<IClassService, ClassService>();
+        services.AddScoped<ISubjectService, SubjectService>();
+        services.AddScoped<ITeacherAssignmentService, TeacherAssignmentService>();
+        services.AddScoped<IEnrollmentService, EnrollmentService>();
+        services.AddScoped<IAdminReadService, AdminReadService>();
         services.AddScoped<LoginRequestValidator>();
         services.AddValidatorsFromAssemblyContaining<LoginRequestValidator>();
 
