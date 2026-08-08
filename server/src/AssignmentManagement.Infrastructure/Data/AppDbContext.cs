@@ -1,3 +1,4 @@
+using AssignmentManagement.Application.Common.Interfaces;
 using AssignmentManagement.Domain;
 using Microsoft.EntityFrameworkCore;
 

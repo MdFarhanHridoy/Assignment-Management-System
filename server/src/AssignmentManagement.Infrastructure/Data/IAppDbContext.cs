@@ -1,17 +1,2 @@
-using AssignmentManagement.Domain;
-using Microsoft.EntityFrameworkCore;
-
-namespace AssignmentManagement.Infrastructure.Data;
-
-public interface IAppDbContext
-{
-    DbSet<User> Users { get; }
-    DbSet<Class> Classes { get; }
-    DbSet<Subject> Subjects { get; }
-    DbSet<TeacherClassSubject> TeacherClassSubjects { get; }
-    DbSet<Enrollment> Enrollments { get; }
-    DbSet<Assignment> Assignments { get; }
-    DbSet<Submission> Submissions { get; }
-
-    Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
-}
+// IAppDbContext has been moved to AssignmentManagement.Application.Common.Interfaces.
+// This file is kept for backward compatibility but no longer declares the interface.

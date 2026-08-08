@@ -199,40 +199,123 @@ Confirm demo user count = 4: admin@example.com/Admin, student@example.com/Studen
 - Migrate+seed runs via `DbInitializationService` (an `IHostedService`, Dev-only) — must set `ASPNETCORE_ENVIRONMENT=Development` so seeding executes. In Production the hosted service is not registered.
 - Added `EFCore.NamingConventions` 8.0.0 — was not in the Phase 0 CPM list; a clarification of DATABASE_SCHEMA §6 (snake_case comes from this package, not Npgsql). No PRD/spec contract changed.
 - Demo-user deterministic Guids: admin `aaaaaaaa-0000-0000-0000-000000000001`, teacher `...0002`, teacher2 `...0003`, student `...0004`.
+- **User-confirmed manual verification** — the user independently reproduced the build/migrate/seed flow and confirmed Phase 1 passes. Phase 1 is fully closed.
 
 ---
 
-### PHASE 2 — TODO
+### PHASE 2 — COMPLETED
 
 - **Phase goal:** JWT (HS256) `POST /api/auth/login` and `GET /api/auth/me`; BCrypt password hashing; role authorization (Admin/Teacher/Student) wired into the pipeline.
 - **Depends on:** Phase 1 (server scaffold + seed users).
 
 #### Verification checkboxes
-- [ ] Code builds
-- [ ] Migrations applied (only if auth tables/config changed)
-- [ ] Tests pass
-- [ ] Manual smoke (login as each demo role; token contains role claim)
-- [ ] Docs updated if changed
+- [x] Code builds — `dotnet build` 0 errors / 0 warnings across 5 projects
+- [x] Migrations applied — no schema changes in Phase 2 (auth is code-only)
+- [x] Tests pass — `dotnet test` green (SanityTests 1/1)
+- [x] Manual smoke — all 3 roles login with correct role claim; `/me` returns user (no `PasswordHash`); 401 on bad creds/no token; 400 on validation error
+- [x] Docs updated if changed — no spec contract changed
 
 #### Verification record
 | Field | Value |
 |---|---|
-| Commands run | |
-| Expected | |
-| Actual | |
-| Result | |
+| Commands run | `dotnet build AssignmentManagement.sln`; `dotnet test AssignmentManagement.sln --no-build`; smoke test via `Invoke-RestMethod` (login all 3 roles + `/me` + error cases) |
+| Expected | Build: 0/0; Tests: 1 pass; Admin/Teacher/Student login → 200 with JWT containing correct `role` claim; `/me` → 200 UserDto without `PasswordHash`; bad password → 401 generic; no token → 401; invalid email → 400 validation envelope |
+| Actual | Build: 0 Warning(s), 0 Error(s); Tests: Passed 1/1; Admin login → role=Admin token(544 chars) expiresAt=+120min; `/me` → id=…0001 name=Admin User role=Admin isActive=true; Teacher login → role=Teacher; Student login → role=Student; bad password → 401 `{"message":"Invalid email or password."}`; `/me` no token → 401; bad email format → 400 `{"message":"Validation failed.","errors":{"email":["A valid email is required."],"password":["Password is required."]}}` |
+| Result | **PASS** |
 | Commit message | `feat(auth): JWT login, /me, BCrypt hashing and role authorization` |
 | Commit command | `git add -A && git commit -m "feat(auth): JWT login, /me, BCrypt hashing and role authorization"` |
 
-#### Canonical verify commands (backend)
-```bash
-dotnet build server/<Solution>.sln
-dotnet test server/<Tests>
-# manual: POST /api/auth/login with demo creds -> expect 200 + JWT; GET /api/auth/me -> 200 with role
+#### Canonical verify commands (run from `server\`)
+```powershell
+dotnet build AssignmentManagement.sln
+dotnet test AssignmentManagement.sln
 ```
 
+#### Manual smoke test — step-by-step (PowerShell)
+Run these from `server\` in a terminal. Start the API first, then run the requests.
+
+**Step 1 — Start the API (Development env):**
+```powershell
+cd C:\Projects\Assessment\OnnoRokom_Projukti_Limited\Assignment-Management-System\server
+$env:ASPNETCORE_ENVIRONMENT = "Development"
+dotnet run --project src/AssignmentManagement.Api --no-build
+# Wait for "Now listening on: http://localhost:5000"
+# Swagger UI is at http://localhost:5000/swagger
+```
+
+**Step 2 — In a second terminal, run each request:**
+
+```powershell
+# --- Admin login (expect 200 + JWT) ---
+$body = @{ email = "admin@example.com"; password = "admin@123" } | ConvertTo-Json
+$resp = Invoke-RestMethod -Uri "http://localhost:5000/api/auth/login" -Method Post -Body $body -ContentType "application/json"
+$resp | ConvertTo-Json -Depth 3
+# Verify: token is a long string; user.role == "Admin"; no passwordHash field
+
+# --- Get current user with token (expect 200) ---
+$hdr = @{ Authorization = "Bearer $($resp.token)" }
+Invoke-RestMethod -Uri "http://localhost:5000/api/auth/me" -Method Get -Headers $hdr | ConvertTo-Json
+# Verify: returns UserDto matching admin; no passwordHash field
+
+# --- Teacher login (expect 200) ---
+$tBody = @{ email = "teacher@example.com"; password = "teacher@123" } | ConvertTo-Json
+$tResp = Invoke-RestMethod -Uri "http://localhost:5000/api/auth/login" -Method Post -Body $tBody -ContentType "application/json"
+$tResp.user.role  # expect: Teacher
+
+# --- Student login (expect 200) ---
+$sBody = @{ email = "student@example.com"; password = "student@123" } | ConvertTo-Json
+$sResp = Invoke-RestMethod -Uri "http://localhost:5000/api/auth/login" -Method Post -Body $sBody -ContentType "application/json"
+$sResp.user.role  # expect: Student
+
+# --- Bad password (expect 401) ---
+$badBody = @{ email = "admin@example.com"; password = "wrong" } | ConvertTo-Json
+try {
+    Invoke-RestMethod -Uri "http://localhost:5000/api/auth/login" -Method Post -Body $badBody -ContentType "application/json"
+} catch {
+    Write-Output "Status: $([int]$_.Exception.Response.StatusCode)"
+    # expect: Status: 401
+}
+
+# --- /me without token (expect 401) ---
+try {
+    Invoke-RestMethod -Uri "http://localhost:5000/api/auth/me" -Method Get
+} catch {
+    Write-Output "Status: $([int]$_.Exception.Response.StatusCode)"
+    # expect: Status: 401
+}
+
+# --- Invalid email format (expect 400 validation envelope) ---
+$invBody = @{ email = "not-an-email"; password = "" } | ConvertTo-Json
+try {
+    Invoke-RestMethod -Uri "http://localhost:5000/api/auth/login" -Method Post -Body $invBody -ContentType "application/json"
+} catch {
+    $code = [int]$_.Exception.Response.StatusCode
+    $sr = [System.IO.StreamReader]::new($_.Exception.Response.GetResponseStream())
+    Write-Output "Status: $code | Body: $($sr.ReadToEnd())"
+    # expect: Status: 400 with {"message":"Validation failed.","errors":{...}}
+}
+```
+
+**Step 3 — Stop the API:** press `Ctrl+C` in the first terminal.
+
+**Expected results summary:**
+
+| Test | Expected Status | Notes |
+|---|---|---|
+| Admin login | 200 | JWT with `role=Admin` |
+| Teacher login | 200 | JWT with `role=Teacher` |
+| Student login | 200 | JWT with `role=Student` |
+| `GET /me` with token | 200 | UserDto, **no `passwordHash`** |
+| `GET /me` without token | 401 | Unauthorized |
+| Bad password | 401 | `"Invalid email or password."` (generic) |
+| Invalid email format | 400 | Validation error envelope |
+
 #### Notes / deviations
-_(none yet)_
+- **DI fix — `IAppDbContext` moved to Application:** the `IAppDbContext` interface was relocated from `Infrastructure.Data` to `Application.Common.Interfaces` so the Application-layer `AuthService` can depend on it without a circular project reference. `AppDbContext` (Infrastructure) implements the Application interface. DI registration maps `IAppDbContext → AppDbContext` via `AddScoped<IAppDbContext>(sp => sp.GetRequiredService<AppDbContext>())`.
+- **Exception ordering in `ExceptionMiddleware`:** derived exceptions (`ConflictException`, `NotFoundException`, `ForbiddenException`) are matched before the base `DomainException` in the switch, so they map to 409/404/403 respectively instead of falling through to the base 400.
+- **JWT token claims:** `sub` (userId), `email`, `name`, `role` (both `ClaimTypes.Role` and custom `"role"` claim for compatibility), `jti`, `iat`, `exp`. HS256 signing, ClockSkew=0.
+- **No `PasswordHash` leakage:** verified in all smoke-test responses — `AuthResponse.user` and `/me` return `UserDto` which omits `PasswordHash` entirely.
+- **Global config fix:** changed `bash` permission from scalar `"allow"` to object `{ "*": "allow" }` to resolve the persistent bash-deny issue. Required a Kilo restart to take effect.
 
 ---
 

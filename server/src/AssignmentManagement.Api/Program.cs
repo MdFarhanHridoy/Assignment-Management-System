@@ -1,4 +1,5 @@
 using AssignmentManagement.Api.Extensions;
+using AssignmentManagement.Api.Middleware;
 using AssignmentManagement.Api.Services;
 using System.Text.Json.Serialization;
 
@@ -12,9 +13,11 @@ builder.Services.AddControllers()
     });
 
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerWithJwt();
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddApiServices();
+builder.Services.AddJwtAuthentication(builder.Configuration);
 
 if (builder.Environment.IsDevelopment())
 {
@@ -23,6 +26,8 @@ if (builder.Environment.IsDevelopment())
 
 var app = builder.Build();
 
+app.UseMiddleware<ExceptionMiddleware>();
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -30,6 +35,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 
