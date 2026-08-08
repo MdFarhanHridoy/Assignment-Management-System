@@ -1,0 +1,23 @@
+# Kilo / Agent Manager local state
+.kilo/
+
+# .NET build output
+**/bin/
+**/obj/
+*.user
+*.suo
+
+# IDE
+.vs/
+.vscode/
+.idea/
+
+# Environment / secrets
+*.env
+.env
+appsettings.*.Development.json
+!appsettings.example.json
+
+# OS
+Thumbs.db
+.DS_Store
