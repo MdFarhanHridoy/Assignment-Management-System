@@ -12,6 +12,17 @@ builder.Services.AddControllers()
         options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
     });
 
+const string ClientOrigin = "ClientOrigin";
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy(ClientOrigin, policy =>
+    {
+        policy.WithOrigins("http://localhost:3000")
+              .AllowAnyHeader()
+              .AllowAnyMethod();
+    });
+});
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerWithJwt();
 builder.Services.AddApplication();
@@ -34,7 +45,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
+app.UseCors(ClientOrigin);
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();

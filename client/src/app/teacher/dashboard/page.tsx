@@ -1,0 +1,76 @@
+"use client";
+
+import Link from "next/link";
+import { useAuth } from "@/hooks/useAuth";
+import { RoleGuard } from "@/components/guards/RoleGuard";
+import { RoleShell } from "@/components/layout/RoleShell";
+import { Card } from "@/components/ui/Card";
+import { Spinner } from "@/components/ui/Spinner";
+import { ROLE_LABELS, ROUTES } from "@/lib/constants";
+
+export default function TeacherDashboardPage() {
+  const { user, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <Spinner />
+      </div>
+    );
+  }
+
+  return (
+    <RoleGuard allowedRoles={["Teacher"]}>
+      <RoleShell role="Teacher">
+        <div className="space-y-6">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">
+              Welcome back, {user?.name}
+            </h1>
+            <p className="mt-1 text-sm text-gray-500">
+              {ROLE_LABELS.Teacher} dashboard overview
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+            <Card
+              title="My Assignments"
+              description="Create and manage your assignments"
+            >
+              <Link
+                href={ROUTES.TEACHER_ASSIGNMENTS}
+                className="inline-flex items-center text-sm font-medium text-blue-600 hover:text-blue-800"
+              >
+                View my assignments →
+              </Link>
+            </Card>
+
+            <Card
+              title="Create Assignment"
+              description="Publish a new assignment for your class"
+            >
+              <Link
+                href={ROUTES.TEACHER_ASSIGNMENT_NEW}
+                className="inline-flex items-center text-sm font-medium text-blue-600 hover:text-blue-800"
+              >
+                Create assignment →
+              </Link>
+            </Card>
+
+            <Card
+              title="Submissions to Review"
+              description="Grade and review student submissions"
+            >
+              <Link
+                href={ROUTES.TEACHER_SUBMISSIONS}
+                className="inline-flex items-center text-sm font-medium text-blue-600 hover:text-blue-800"
+              >
+                Review submissions →
+              </Link>
+            </Card>
+          </div>
+        </div>
+      </RoleShell>
+    </RoleGuard>
+  );
+}

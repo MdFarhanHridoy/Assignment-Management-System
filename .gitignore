@@ -21,3 +21,10 @@ appsettings.*.Development.json
 # OS
 Thumbs.db
 .DS_Store
+
+# Node / Frontend
+node_modules/
+client/.next/
+client/out/
+client/.env*.local
+*.log
