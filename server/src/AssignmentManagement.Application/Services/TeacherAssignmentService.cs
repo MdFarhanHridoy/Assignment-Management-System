@@ -28,9 +28,11 @@ public class TeacherAssignmentService : ITeacherAssignmentService
         if (!classExists)
             throw new NotFoundException($"Class with id '{request.ClassId}' was not found.");
 
-        var subjectExists = await _db.Subjects.AnyAsync(s => s.Id == request.SubjectId, ct);
-        if (!subjectExists)
-            throw new NotFoundException($"Subject with id '{request.SubjectId}' was not found.");
+        var subject = await _db.Subjects.FirstOrDefaultAsync(s => s.Id == request.SubjectId, ct)
+            ?? throw new NotFoundException($"Subject with id '{request.SubjectId}' was not found.");
+
+        if (subject.ClassId != request.ClassId)
+            throw new DomainException("The selected subject does not belong to the selected class.");
 
         var dup = await _db.TeacherClassSubjects.AnyAsync(
             t => t.TeacherId == request.TeacherId && t.ClassId == request.ClassId && t.SubjectId == request.SubjectId, ct);

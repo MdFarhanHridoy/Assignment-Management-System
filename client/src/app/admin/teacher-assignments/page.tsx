@@ -60,6 +60,7 @@ export default function AdminTeacherAssignmentsPage() {
   const userMap = new Map((users.data ?? []).map((u) => [u.id, u]));
   const classMap = new Map((classes.data ?? []).map((c) => [c.id, c]));
   const subjectMap = new Map((subjects.data ?? []).map((s) => [s.id, s]));
+  const classSubjects = (subjects.data ?? []).filter((s) => s.classId === classId);
 
   const refetchAll = () => {
     assignments.refetch();
@@ -216,7 +217,10 @@ export default function AdminTeacherAssignmentsPage() {
                   <select
                     id="ta-class"
                     value={classId}
-                    onChange={(e) => setClassId(e.target.value)}
+                    onChange={(e) => {
+                      setClassId(e.target.value);
+                      setSubjectId("");
+                    }}
                     className={selectClassName}
                     disabled={submitting}
                   >
@@ -241,15 +245,23 @@ export default function AdminTeacherAssignmentsPage() {
                     value={subjectId}
                     onChange={(e) => setSubjectId(e.target.value)}
                     className={selectClassName}
-                    disabled={submitting}
+                    disabled={submitting || !classId}
                   >
-                    <option value="">Select a subject</option>
-                    {(subjects.data ?? []).map((s) => (
+                    <option value="">
+                      {classId ? "Select a subject" : "Select a class first"}
+                    </option>
+                    {classSubjects.map((s) => (
                       <option key={s.id} value={s.id}>
                         {s.name}
                       </option>
                     ))}
                   </select>
+                  {classId && classSubjects.length === 0 && (
+                    <p className="mt-1 text-sm text-gray-500">
+                      No subjects for this class yet. Create one under Subjects
+                      first.
+                    </p>
+                  )}
                 </div>
               </div>
 
