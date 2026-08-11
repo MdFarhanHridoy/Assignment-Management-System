@@ -105,11 +105,28 @@ public class AssignmentService : IAssignmentService
             .Select(e => e.ClassId)
             .ToListAsync(ct);
 
-        return await _db.Assignments
-            .Where(a => a.Status == AssignmentStatus.Published && enrolledClassIds.Contains(a.ClassId))
-            .OrderByDescending(a => a.CreatedAt)
-            .Select(a => a.ToDto())
-            .ToListAsync(ct);
+        return await (
+            from a in _db.Assignments
+            where a.Status == AssignmentStatus.Published && enrolledClassIds.Contains(a.ClassId)
+            join s in _db.Subjects on a.SubjectId equals s.Id
+            orderby a.CreatedAt descending
+            select new AssignmentDto
+            {
+                Id = a.Id,
+                Title = a.Title,
+                Description = a.Description,
+                DeadlineUtc = a.DeadlineUtc,
+                MaxMarks = a.MaxMarks,
+                Status = a.Status,
+                TeacherId = a.TeacherId,
+                ClassId = a.ClassId,
+                SubjectId = a.SubjectId,
+                AllowResubmission = a.AllowResubmission,
+                CreatedAt = a.CreatedAt,
+                UpdatedAt = a.UpdatedAt,
+                SubjectName = s.Name
+            }
+        ).ToListAsync(ct);
     }
 
     public async Task<AssignmentDto> GetPublishedDetailForStudentAsync(Guid id, Guid studentId, CancellationToken ct = default)

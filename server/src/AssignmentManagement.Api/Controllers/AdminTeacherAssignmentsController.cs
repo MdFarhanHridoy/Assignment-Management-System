@@ -34,4 +34,11 @@ public class AdminTeacherAssignmentsController : ControllerBase
         var result = await _service.CreateAsync(request, ct);
         return CreatedAtAction(nameof(GetAll), null, result);
     }
+
+    [HttpDelete("{id:guid}")]
+    public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
+    {
+        await _service.DeleteAsync(id, ct);
+        return NoContent();
+    }
 }

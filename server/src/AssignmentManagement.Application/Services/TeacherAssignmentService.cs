@@ -68,4 +68,13 @@ public class TeacherAssignmentService : ITeacherAssignmentService
             }
         ).ToListAsync(ct);
     }
+
+    public async Task DeleteAsync(Guid id, CancellationToken ct = default)
+    {
+        var entity = await _db.TeacherClassSubjects.FirstOrDefaultAsync(t => t.Id == id, ct)
+            ?? throw new NotFoundException($"Teacher assignment with id '{id}' was not found.");
+
+        _db.TeacherClassSubjects.Remove(entity);
+        await _db.SaveChangesAsync(ct);
+    }
 }

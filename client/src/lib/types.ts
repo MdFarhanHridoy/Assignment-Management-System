@@ -118,6 +118,7 @@ export interface AssignmentDto {
   allowResubmission: boolean;
   createdAt: string;
   updatedAt: string;
+  subjectName?: string;
 }
 export interface CreateAssignmentRequest {
   title: string;

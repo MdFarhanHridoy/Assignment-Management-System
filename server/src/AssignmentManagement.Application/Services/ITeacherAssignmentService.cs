@@ -7,4 +7,5 @@ public interface ITeacherAssignmentService
     Task<List<TeacherAssignmentDto>> GetAllAsync(CancellationToken ct = default);
     Task<TeacherAssignmentDto> CreateAsync(CreateTeacherAssignmentRequest request, CancellationToken ct = default);
     Task<List<TeacherAssignmentViewDto>> GetMineAsync(Guid teacherId, CancellationToken ct = default);
+    Task DeleteAsync(Guid id, CancellationToken ct = default);
 }

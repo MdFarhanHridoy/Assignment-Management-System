@@ -47,6 +47,11 @@ export default function StudentAssignmentsPage() {
                 </h3>
                 <Badge variant="blue">{assignment.maxMarks} marks</Badge>
               </div>
+              {assignment.subjectName && (
+                <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-indigo-600">
+                  {assignment.subjectName}
+                </p>
+              )}
               <p className="mt-2 line-clamp-3 text-sm text-gray-600">
                 {assignment.description}
               </p>
