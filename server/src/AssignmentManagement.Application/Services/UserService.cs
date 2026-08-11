@@ -77,6 +77,24 @@ public class UserService : IUserService
     {
         var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == id, ct)
             ?? throw new NotFoundException($"User with id '{id}' was not found.");
+
+        // Restrict FKs to Users.Id — block with a clear error instead of letting
+        // Postgres raise an FK violation that surfaces as an opaque 500.
+        // (Submissions.ReviewedByTeacherId is SetNull and intentionally not checked.)
+        var blockers = new List<string>();
+        if (await _db.Enrollments.AnyAsync(e => e.StudentId == id, ct)) blockers.Add("enrollment(s)");
+        if (await _db.Submissions.AnyAsync(s => s.StudentId == id, ct)) blockers.Add("submission(s)");
+        if (await _db.Assignments.AnyAsync(a => a.TeacherId == id, ct)) blockers.Add("assignment(s)");
+        if (await _db.TeacherClassSubjects.AnyAsync(t => t.TeacherId == id, ct)) blockers.Add("class/subject assignment(s)");
+
+        if (blockers.Count > 0)
+        {
+            throw new ConflictException(
+                $"Cannot delete this user because they still have related data " +
+                $"({string.Join(", ", blockers)}). Remove those first, or disable " +
+                $"the account instead via Edit > Active account.");
+        }
+
         _db.Users.Remove(user);
         await _db.SaveChangesAsync(ct);
     }
