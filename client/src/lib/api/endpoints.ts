@@ -24,6 +24,7 @@ import {
   SubmitRequest,
   UpdateSubmissionRequest,
   ReviewSubmissionRequest,
+  TeacherAssignmentViewDto,
 } from '../types';
 
 // ===== Auth =====
@@ -110,6 +111,12 @@ export const teacherSubmissionsApi = {
     apiClient.get<SubmissionDto[]>(`/api/teacher/assignments/${assignmentId}/submissions`),
   review: (submissionId: string, data: ReviewSubmissionRequest) =>
     apiClient.put<SubmissionDto>(`/api/teacher/submissions/${submissionId}/review`, data),
+};
+
+// ===== Teacher: Class/Subject assignment links =====
+export const teacherAssignmentLinksApi = {
+  list: () =>
+    apiClient.get<TeacherAssignmentViewDto[]>('/api/teacher/teacher-assignments'),
 };
 
 // ===== Student: Assignments =====

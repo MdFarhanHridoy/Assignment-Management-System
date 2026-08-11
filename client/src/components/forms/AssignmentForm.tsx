@@ -3,6 +3,8 @@
 import React, { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { useApi } from "@/hooks/useApi";
+import { teacherAssignmentLinksApi } from "@/lib/api/endpoints";
 import {
   CreateAssignmentRequest,
   UpdateAssignmentRequest,
@@ -52,6 +54,11 @@ export function AssignmentForm({
     initialData?.allowResubmission ?? true
   );
 
+  const { data: links, loading: linksLoading, error: linksError } = useApi(
+    () => teacherAssignmentLinksApi.list(),
+    []
+  );
+
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [apiError, setApiError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -67,8 +74,8 @@ export function AssignmentForm({
     const marksNum = Number(maxMarks);
     if (!maxMarks || isNaN(marksNum) || marksNum < 1)
       errors.maxMarks = "Max marks must be at least 1";
-    if (!classId.trim()) errors.classId = "Class ID is required";
-    if (!subjectId.trim()) errors.subjectId = "Subject ID is required";
+    if (!classId || !subjectId)
+      errors.assignment = "Please select a class and subject.";
 
     setFieldErrors(errors);
     if (Object.keys(errors).length > 0) return;
@@ -90,6 +97,27 @@ export function AssignmentForm({
     if (!result.success) {
       setApiError(result.error ?? "Something went wrong. Please try again.");
     }
+  };
+
+  const linksData = links ?? [];
+  const noLinks = !linksLoading && !linksError && linksData.length === 0;
+  const selectedKey = classId && subjectId ? `${classId}|${subjectId}` : "";
+  const selectedAvailable = linksData.some(
+    (l) => `${l.classId}|${l.subjectId}` === selectedKey
+  );
+  const showCurrentFallback =
+    !noLinks && selectedKey !== "" && !selectedAvailable;
+
+  const handleLinkChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const v = e.target.value;
+    if (!v) {
+      setClassId("");
+      setSubjectId("");
+      return;
+    }
+    const [cid, sid] = v.split("|");
+    setClassId(cid);
+    setSubjectId(sid);
   };
 
   return (
@@ -159,27 +187,48 @@ export function AssignmentForm({
         required
       />
 
-      <Input
-        label="Class ID"
-        name="classId"
-        placeholder="00000000-0000-0000-0000-000000000000"
-        value={classId}
-        onChange={(e) => setClassId(e.target.value)}
-        error={fieldErrors.classId}
-        hint="Enter the Class ID you are assigned to"
-        required
-      />
-
-      <Input
-        label="Subject ID"
-        name="subjectId"
-        placeholder="00000000-0000-0000-0000-000000000000"
-        value={subjectId}
-        onChange={(e) => setSubjectId(e.target.value)}
-        error={fieldErrors.subjectId}
-        hint="Enter the Subject ID you are assigned to"
-        required
-      />
+      <div className="w-full">
+        <label
+          htmlFor="assignment-link"
+          className="mb-1 block text-sm font-medium text-gray-700"
+        >
+          Class — Subject<span className="ml-0.5 text-red-500">*</span>
+        </label>
+        {linksLoading ? (
+          <p className="text-sm text-gray-500">Loading your assignments…</p>
+        ) : linksError ? (
+          <p className="text-sm text-red-600">
+            Could not load your class/subject assignments. {linksError}
+          </p>
+        ) : noLinks ? (
+          <p className="text-sm text-red-600">
+            You have no class/subject assignments yet. Ask an admin to assign
+            you first.
+          </p>
+        ) : (
+          <select
+            id="assignment-link"
+            value={selectedKey}
+            onChange={handleLinkChange}
+            className={TEXTAREA_SELECT_CLASS}
+          >
+            <option value="">Select a class/subject</option>
+            {showCurrentFallback && (
+              <option value={selectedKey}>
+                {classId.slice(0, 8)}… — {subjectId.slice(0, 8)}… (current)
+              </option>
+            )}
+            {linksData.map((l) => (
+              <option key={l.id} value={`${l.classId}|${l.subjectId}`}>
+                {l.className} — {l.subjectName}
+              </option>
+            ))}
+          </select>
+        )}
+        {fieldErrors.assignment && (
+          <p className="mt-1 text-sm text-red-600">{fieldErrors.assignment}</p>
+        )}
+      </div>
 
       <div className="flex items-center gap-2">
         <input

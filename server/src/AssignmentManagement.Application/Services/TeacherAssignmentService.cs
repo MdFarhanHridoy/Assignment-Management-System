@@ -20,8 +20,7 @@ public class TeacherAssignmentService : ITeacherAssignmentService
     }
 
     public async Task<TeacherAssignmentDto> CreateAsync(CreateTeacherAssignmentRequest request, CancellationToken ct = default)
-    {
-        var teacher = await _db.Users.FirstOrDefaultAsync(u => u.Id == request.TeacherId, ct);
+    {        var teacher = await _db.Users.FirstOrDefaultAsync(u => u.Id == request.TeacherId, ct);
         if (teacher is null || teacher.Role != UserRole.Teacher)
             throw new NotFoundException($"Teacher with id '{request.TeacherId}' was not found.");
 
@@ -49,5 +48,24 @@ public class TeacherAssignmentService : ITeacherAssignmentService
         _db.TeacherClassSubjects.Add(tcs);
         await _db.SaveChangesAsync(ct);
         return tcs.ToDto();
+    }
+
+    public async Task<List<TeacherAssignmentViewDto>> GetMineAsync(Guid teacherId, CancellationToken ct = default)
+    {
+        return await (
+            from t in _db.TeacherClassSubjects
+            where t.TeacherId == teacherId
+            join c in _db.Classes on t.ClassId equals c.Id
+            join s in _db.Subjects on t.SubjectId equals s.Id
+            orderby c.Name, s.Name
+            select new TeacherAssignmentViewDto
+            {
+                Id = t.Id,
+                ClassId = c.Id,
+                ClassName = c.Name,
+                SubjectId = s.Id,
+                SubjectName = s.Name
+            }
+        ).ToListAsync(ct);
     }
 }

@@ -2,14 +2,23 @@
 
 import Link from "next/link";
 import { useAuth } from "@/hooks/useAuth";
+import { useApi } from "@/hooks/useApi";
 import { RoleGuard } from "@/components/guards/RoleGuard";
 import { RoleShell } from "@/components/layout/RoleShell";
 import { Card } from "@/components/ui/Card";
 import { Spinner } from "@/components/ui/Spinner";
+import { ErrorState } from "@/components/ui/ErrorState";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { Table, Th, Td, Tr } from "@/components/ui/Table";
+import { teacherAssignmentLinksApi } from "@/lib/api/endpoints";
 import { ROLE_LABELS, ROUTES } from "@/lib/constants";
 
 export default function TeacherDashboardPage() {
   const { user, isLoading } = useAuth();
+  const { data: links, loading, error, refetch } = useApi(
+    () => teacherAssignmentLinksApi.list(),
+    []
+  );
 
   if (isLoading) {
     return (
@@ -18,6 +27,53 @@ export default function TeacherDashboardPage() {
       </div>
     );
   }
+
+  const renderAssignments = () => {
+    if (loading && !links) {
+      return (
+        <div className="flex items-center justify-center py-12">
+          <Spinner />
+        </div>
+      );
+    }
+    if (error) {
+      return <ErrorState message={error} onRetry={refetch} />;
+    }
+    if (!links || links.length === 0) {
+      return (
+        <EmptyState
+          title="No class/subject assignments yet"
+          description="Ask an admin to assign you to a class and subject before creating assignments."
+        />
+      );
+    }
+    return (
+      <Table>
+        <thead>
+          <tr>
+            <Th>Class</Th>
+            <Th>Subject</Th>
+            <Th>Class ID</Th>
+            <Th>Subject ID</Th>
+          </tr>
+        </thead>
+        <tbody>
+          {links.map((l) => (
+            <Tr key={l.id}>
+              <Td className="font-medium text-gray-900">{l.className}</Td>
+              <Td>{l.subjectName}</Td>
+              <Td className="break-all font-mono text-xs text-gray-500">
+                {l.classId}
+              </Td>
+              <Td className="break-all font-mono text-xs text-gray-500">
+                {l.subjectId}
+              </Td>
+            </Tr>
+          ))}
+        </tbody>
+      </Table>
+    );
+  };
 
   return (
     <RoleGuard allowedRoles={["Teacher"]}>
@@ -69,6 +125,13 @@ export default function TeacherDashboardPage() {
               </Link>
             </Card>
           </div>
+
+          <Card
+            title="My Class / Subject Assignments"
+            description="The classes and subjects you are assigned to teach."
+          >
+            {renderAssignments()}
+          </Card>
         </div>
       </RoleShell>
     </RoleGuard>
