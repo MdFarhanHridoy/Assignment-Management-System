@@ -47,4 +47,12 @@ public class EnrollmentService : IEnrollmentService
         await _db.SaveChangesAsync(ct);
         return enrollment.ToDto();
     }
+
+    public async Task DeleteAsync(Guid id, CancellationToken ct = default)
+    {
+        var enrollment = await _db.Enrollments.FirstOrDefaultAsync(e => e.Id == id, ct)
+            ?? throw new NotFoundException($"Enrollment with id '{id}' was not found.");
+        _db.Enrollments.Remove(enrollment);
+        await _db.SaveChangesAsync(ct);
+    }
 }
