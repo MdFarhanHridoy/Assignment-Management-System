@@ -164,13 +164,13 @@ export function AssignmentForm({
       </div>
 
       <Input
-        label="Deadline (UTC)"
+        label="Deadline"
         name="deadlineUtc"
         type="datetime-local"
         value={deadlineLocal}
         onChange={(e) => setDeadlineLocal(e.target.value)}
         error={fieldErrors.deadlineUtc}
-        hint="Stored as UTC. Select the date and time."
+        hint="Select the date and time in your local timezone."
         required
       />
 

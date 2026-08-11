@@ -12,9 +12,8 @@ export function formatUtcDate(iso: string): string {
     hour: 'numeric',
     minute: '2-digit',
     hour12: true,
-    timeZone: 'UTC',
   });
-  return `${formatter.format(date)} UTC`;
+  return formatter.format(date);
 }
 
 export function formatDate(iso: string): string {
@@ -24,7 +23,6 @@ export function formatDate(iso: string): string {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
-    timeZone: 'UTC',
   }).format(date);
 }
 
