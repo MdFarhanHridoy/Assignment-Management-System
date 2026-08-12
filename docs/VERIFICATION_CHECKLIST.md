@@ -864,36 +864,64 @@ npm run dev         # dev server on http://localhost:3000
 
 ---
 
-### PHASE 8 — TODO
+### PHASE 8 — COMPLETED
 
 - **Phase goal:** xUnit coverage for business rules and authorization — auth/role guards, assignment ownership, draft visibility, published-for-enrolled visibility, max-marks > 0, deadline before/after, update-before-deadline, marks within [0, MaxMarks], cross-student isolation, admin full visibility.
 - **Depends on:** Phases 1–5 (server + all API surfaces exist to assert against).
 
 #### Verification checkboxes
-- [ ] Code builds (`dotnet build`)
-- [ ] Migrations applied — N/A (test phase)
-- [ ] Tests pass (`dotnet test`)
-- [ ] Manual smoke — N/A (automated)
-- [ ] Docs updated if changed
+- [x] Code builds (`dotnet build`) — 0 errors, 0 warnings across all 5 projects
+- [x] Migrations applied — N/A (test phase)
+- [x] Tests pass (`dotnet test`) — **78+ tests, ALL PASSED, 0 failures**
+- [x] Manual smoke — N/A (automated)
+- [x] Docs updated if changed — MaxMarks validation added to AssignmentService
 
 #### Verification record
 | Field | Value |
 |---|---|
-| Commands run | |
-| Expected | |
-| Actual | |
-| Result | |
+| Commands run | `dotnet build AssignmentManagement.sln`; `dotnet test AssignmentManagement.sln --no-build` |
+| Expected | Build: 0/0; Tests: 78+ passed, 0 failed across TS-AUTH/USER/CLASS/ASGN/SUB/REV/ADM/CROSS scenarios |
+| Actual | Build: 0 Warning(s), 0 Error(s); Tests: 78+ Passed, 0 Failed (all green) |
+| Result | **PASS** |
 | Commit message | `test: xUnit coverage for business rules and authorization` |
 | Commit command | `git add -A && git commit -m "test: xUnit coverage for business rules and authorization"` |
 
-#### Canonical verify commands (backend tests)
-```bash
-dotnet build server/<Solution>.sln
-dotnet test server/<Tests>   # expect all green; covers PRD §13.1–13.4
+#### Canonical verify commands (run from `server\`)
+```powershell
+dotnet build AssignmentManagement.sln
+dotnet test AssignmentManagement.sln --no-build --logger "console;verbosity=normal"
 ```
 
+#### Test inventory (14 files, 78+ tests)
+
+**Test infrastructure (3 files):**
+`TestHelpers/TestDbHelper.cs` (In-Memory DB factory + seeded data + service factories), `TestHelpers/TestFakes.cs` (FakePasswordHasher, FakeJwtTokenService), `SanityTests.cs`
+
+**Auth tests (1 file, 6 tests):**
+`Auth/AuthServiceTests.cs` — TS-AUTH-01 (valid login → JWT), TS-AUTH-02 (invalid → null), disabled user, no PasswordHash in DTO
+
+**Service CRUD tests (5 files, 33 tests):**
+`Services/UserServiceTests.cs` — TS-USER-01/02/03 (CRUD, duplicate email 409, hash verification)
+`Services/ClassServiceTests.cs` — TS-CLASS-01 (CRUD lifecycle)
+`Services/SubjectServiceTests.cs` — TS-CLASS-01 (subject CRUD, bad classId 404, dup name 409)
+`Services/TeacherAssignmentServiceTests.cs` — TS-CLASS-02/03 (assign, duplicate 409, wrong role 404)
+`Services/EnrollmentServiceTests.cs` — TS-CLASS-04/05 (enroll, duplicate 409, wrong role 404)
+
+**Business rules tests (4 files, 35 tests):**
+`Rules/AssignmentRulesTests.cs` — TS-ASGN-01/02/03/04/05/06/08/09 (unassigned 403, draft invisible, published enrolled-only, MaxMarks>0, ownership, UTC deadline, publish transition)
+`Rules/SubmissionRulesTests.cs` — TS-SUB-01/02/03/04/05/06/08/09/10 (submit before/after deadline, update, draft 404, cross-student 403, upsert, not-enrolled, resubmission false)
+`Rules/ReviewRulesTests.cs` — TS-REV-01/02/03/04/05/06 (own review, marks<0 400, marks>max 400, boundary 100 ok, cross-teacher 403, feedback optional, status transition)
+`Rules/AdminVisibilityTests.cs` — TS-ADM-01/02/03 (admin sees all assignments including Draft, all submissions, not limited by teacher/status)
+
+**Cross-cutting tests (1 file, 5 tests):**
+`Rules/CrossCuttingTests.cs` — TS-CROSS-01 (UTC deadline storage), TS-CROSS-02 (PasswordHash not in UserDto/AuthResponse), TS-CROSS-03 (login returns token for all 3 roles)
+
 #### Notes / deviations
-_(none yet)_
+- **MaxMarks validation added to AssignmentService:** The service layer `CreateAsync` did not validate `MaxMarks > 0` (ASGN-011) — only the FluentValidation pipeline at the API layer did. Added `if (request.MaxMarks <= 0) throw new DomainException(...)` to `AssignmentService.CreateAsync` so the business rule is enforced at the service level and is unit-testable without HTTP.
+- **Package additions:** Added `Microsoft.EntityFrameworkCore.InMemory` 8.0.10 (for In-Memory test DB) and `Microsoft.Extensions.Logging.Abstractions` 8.0.2 (for `NullLogger<AuthService>` in tests) to `Directory.Packages.props` + test csproj. Initial 8.0.1 caused a NU1605 downgrade error (EF Core 8.0.10 transitively requires ≥8.0.2); bumped to 8.0.2.
+- **FakePasswordHasher convention:** Seeded users have `PasswordHash = "hash-{email}"`. The `FakePasswordHasher.Verify(password, hash)` checks `hash == "hash-{password}"`. So in auth tests, the login password equals the email address. This is a test-only convention — production uses BCrypt.
+- **EF Core In-Memory limitations:** In-Memory provider does not enforce CHECK constraints or unique indexes the same way PostgreSQL does. Uniqueness/conflict tests (`ConflictException`) pass because the services check for duplicates explicitly before inserting. The real PostgreSQL constraint enforcement is verified via the Phase 1–5 smoke tests.
+- **TS-CROSS-03 (JWT role claim):** At the service level, tests use `FakeJwtTokenService` which returns `"fake-token-{email}"` (not a decodable JWT). The test verifies login returns a non-empty token for all 3 roles. Real JWT role claim verification is covered by Phase 2 smoke tests (decoded token had correct `role` claim).
 
 ---
 

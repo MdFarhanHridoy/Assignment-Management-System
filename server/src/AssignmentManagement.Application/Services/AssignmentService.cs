@@ -34,6 +34,9 @@ public class AssignmentService : IAssignmentService
         if (!assigned)
             throw new ForbiddenException("You are not assigned to this class and subject.");
 
+        if (request.MaxMarks <= 0)
+            throw new DomainException("Maximum marks must be greater than zero.");
+
         var assignment = new Assignment
         {
             Id = Guid.NewGuid(),
